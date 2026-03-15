@@ -160,7 +160,6 @@ const Logs = () => {
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
                 />
 
-
                 <label className="block text-sm font-medium text-gray-700">
                   Catatan
                 </label>
@@ -195,39 +194,40 @@ const Logs = () => {
             {logs.length === 0 ? (
               <p className="text-gray-500">No logs available.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="relative border-l-2 border-gray-200 ml-4 md:ml-32">
                 {processLogs.map((log) => (
                   <div
-                    className="relative border-l-2 border-gray-200 ml-4"
+                    className="mb-10 ml-2 flex flex-col md:flex-row items-start w-full p-6"
                     key={log.id}
                   >
-                    <div className="mb-10 ml-6 flex items-start">
-                      <div className="absolute -left-1.5 w-3 h-3 bg-blue-500 rounded-full mt-1.5"></div>
+                    <div className="hidden md:block absolute -left-18 text-right text-sm font-medium text-gray-400 w-[32px]">
+                      {new Date(log.tanggal).toLocaleDateString("id-ID", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
 
-                      <div className="mr-4 text-sm font-semibold text-gray-500 min-w-[100px]">
-                        {new Date(log.tanggal).toLocaleDateString("id-ID", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </div>
+                    {/* Titik Simpul */}
+                    <div className="absolute -left-1.5 w-3 h-3 bg-blue-500 rounded-full border-2 border-white"></div>
 
-                      <div className="flex-1 p-4 bg-white rounded-lg shadow-md border border-gray-100">
-                        <h3 className="font-bold text-lg text-blue-600">
-                          Kelas: {log.kelas}
-                        </h3>
-                        <p className="text-gray-700">Materi: {log.materi}</p>
-                        <p className="text-sm text-gray-500 mt-2 italic">
-                          Catatan: {log.catatan}
+                    {/* Card Utama */}
+                    <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 p-5 min-w-full">
+                      <h3 className="font-bold text-lg text-blue-600">
+                        Kelas: {log.kelas}
+                      </h3>
+                      <p className="text-gray-700">Materi: {log.materi}</p>
+                      <p className="text-sm text-gray-500 mt-2 italic">
+                        Catatan: {log.catatan}
+                      </p>
+                      {log.tidakHadir && (
+                        <p className="text-sm text-red-500 mt-2 italic">
+                          Tidak Hadir: {log.tidakHadir}
                         </p>
-                        {log.tidakHadir && (
-                          <p className="text-sm text-red-500 mt-2 italic">
-                            Tidak Hadir: {log.tidakHadir}
-                          </p>
-                        )}
-                      </div>
+                      )}
+
                       {/* Edit button would go here */}
-                      <div className="ml-4 flex space-x-2">
+                      <div className="mt-4 pt-4 border-t border-gray-50 flex justify-end gap-2">
                         <button
                           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded"
                           onClick={() => handleEdit(log)}
