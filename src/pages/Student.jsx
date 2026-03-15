@@ -1,19 +1,19 @@
-import { useEffect, useReducer, useState } from 'react';
-import Modals from '../components/layout/Modals';
+import { useEffect, useReducer, useState } from "react";
+import Modals from "../components/layout/Modals";
 
 const init = () => {
   try {
-    const stored = localStorage.getItem('students');
+    const stored = localStorage.getItem("students");
     return stored ? JSON.parse(stored) : [];
   } catch (error) {
-    console.error('Failed to load students', error);
+    console.error("Failed to load students", error);
     return [];
   }
 };
 
 const reducer = (state, action) => {
   switch (action.type) {
-    case 'ADD':
+    case "ADD":
       return [
         ...state,
         {
@@ -21,13 +21,13 @@ const reducer = (state, action) => {
           ...action.payload,
         },
       ];
-    case 'DELETE':
+    case "DELETE":
       return state.filter((item) => item.id !== action.payload);
-    case 'EDIT':
+    case "EDIT":
       return state.map((item) =>
         item.id === action.payload.id
           ? { ...item, ...action.payload.data }
-          : item
+          : item,
       );
     default:
       return state;
@@ -38,28 +38,25 @@ const Student = () => {
   const [dataStudents, dispatch] = useReducer(reducer, [], init);
   const [isModalOpen, setisModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLevel, setSelectedLevel] = useState("");
+  const [selectedKelas, setSelectedKelas] = useState("");
+  const [sortBy, setSortBy] = useState("");
 
   const emptyForm = {
-    name: '',
-    level: '',
-    kelas: '',
-    nilaiMateri1: '',
-    nilaiMateri2: '',
-    nilaiMateri3: '',
+    name: "",
+    level: "",
+    kelas: "",
+    nilaiMateri1: "",
+    nilaiMateri2: "",
+    nilaiMateri3: "",
   };
 
   const [formInput, setFormInput] = useState(emptyForm);
 
   useEffect(() => {
-    localStorage.setItem('students', JSON.stringify(dataStudents));
+    localStorage.setItem("students", JSON.stringify(dataStudents));
   }, [dataStudents]);
-
-  const filteredStudents = dataStudents.filter((student) => {
-    const name = student.name.toLowerCase() || ''
-    const search = searchTerm.toLowerCase()
-    return name.includes(search)
-  });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -76,7 +73,7 @@ const Student = () => {
     if (editingId) {
       // UPDATE pakai map()
       dispatch({
-        type: 'EDIT',
+        type: "EDIT",
         payload: {
           id: editingId,
           data: {
@@ -91,7 +88,7 @@ const Student = () => {
     } else {
       // CREATE seperti biasa
       dispatch({
-        type: 'ADD',
+        type: "ADD",
         payload: {
           ...formInput,
           nilaiMateri1: Number(formInput.nilaiMateri1),
@@ -105,11 +102,11 @@ const Student = () => {
 
     handleCloseModal();
     console.log(formInput);
-    console.log(filteredStudents)
+    console.log(filteredStudents);
   };
 
   const handleDelete = (id) => {
-    dispatch({ type: 'DELETE', payload: id });
+    dispatch({ type: "DELETE", payload: id });
   };
 
   const handleEdit = (student) => {
@@ -137,36 +134,138 @@ const Student = () => {
     setisModalOpen(false);
   };
 
+  const processedStudents = dataStudents
+    .map((student) => {
+      const nilaiAkhir =
+        (Number(student.nilaiMateri1) +
+          Number(student.nilaiMateri2) +
+          Number(student.nilaiMateri3)) /
+          3 || 0;
+
+      return { ...student, nilaiAkhir };
+    })
+
+    .filter((student) => {
+      if (selectedLevel && student.level !== selectedLevel) return false;
+      if (selectedKelas && student.kelas !== selectedKelas) return false;
+
+      const search = searchTerm.toLowerCase();
+
+      const nameMatch = student.name.toLowerCase().includes(search);
+      const levelMatch = student.level.toLowerCase().includes(search);
+      const kelasMatch = student.kelas.toLowerCase().includes(search);
+
+      return nameMatch || levelMatch || kelasMatch;
+    })
+
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+
+      if (sortBy === "level") return a.level.localeCompare(b.level);
+
+      if (sortBy === "kelas") return a.kelas.localeCompare(b.kelas);
+
+      if (sortBy === "nilaiAkhir") return b.nilaiAkhir - a.nilaiAkhir;
+
+      return 0;
+    });
+
+  // Setelah pipeline selesai, baru kamu cari nilai tertinggi sekelas
+  // untuk keperluan highlight (warna kuning)
+  const kumpulanNilai = processedStudents.map((s) => s.nilaiAkhir);
+  const highestScore =
+    kumpulanNilai.length > 0 ? Math.max(...kumpulanNilai) : 0;
+
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center p-6">
       <div className="w-full max-w-6xl bg-white shadow-md rounded-xl mx-auto mt-8  p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-center text-gray-800">
-            Data Siswa
-          </h1>
+        <div className="flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-center text-gray-800">
+              Data Siswa
+            </h1>
 
-          {/* Search bar */}
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[70%] py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
+            {/* Button Open Modals */}
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition duration-200"
+              onClick={() => addStudent()}
+            >
+              + Tambah Siswa
+            </button>
+          </div>
 
-          {/* Button Open Modals */}
-          <button
-            className="bg-blue-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-blue-700 active:scale-95 transition duration-200"
-            onClick={() => addStudent()}
-          >
-            + Tambah Siswa
-          </button>
+          <div className="flex justify-between">
+            {/* Search bar */}
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-[50%] py-2 pl-10 pr-4 text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+
+            {/* Level Filter */}
+            <select
+              value={selectedLevel}
+              onChange={(e) => setSelectedLevel(e.target.value)}
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              <option value="">Semua Jenjang</option>
+              <option value="SD">SD</option>
+              <option value="SMP">SMP</option>
+              <option value="SMA">SMA</option>
+            </select>
+
+            {/* Kelas Filter */}
+            <select
+              value={selectedKelas}
+              onChange={(e) => setSelectedKelas(e.target.value)}
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              <option value="">Semua Kelas</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+              <option value="11">11</option>
+              <option value="12">12</option>
+            </select>
+
+            {/* Sort By */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="ml-4 px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="level">Sort by Level</option>
+              <option value="kelas">Sort by Class</option>
+              <option value="nilaiAkhir">Sort by Final Score</option>
+            </select>
+          </div>
+          <div className="flex justify-end mt-4">
+            <button
+              onClick={() => {
+                setSelectedLevel("");
+                setSelectedKelas("");
+              }}
+              className="bg-gray-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-gray-600 active:scale-95 transition duration-200"
+            >
+              Reset Filter
+            </button>
+          </div>
         </div>
 
         {isModalOpen && (
           <Modals
             onClose={handleCloseModal}
-            title={editingId ? 'Edit Siswa' : 'Tambah Siswa'}
+            title={editingId ? "Edit Siswa" : "Tambah Siswa"}
           >
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Input Nama */}
@@ -184,7 +283,7 @@ const Student = () => {
                     })
                   }
                   placeholder="Contoh: Budi"
-                  className="px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="px-4 py-2 border  border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
                 />
               </div>
 
@@ -306,23 +405,22 @@ const Student = () => {
           </thead>
 
           <tbody className="divide-y divide-gray-200">
-            {filteredStudents.length === 0 ? (
+            {processedStudents.length === 0 ? (
               <tr>
                 <td colSpan="9" className="text-center py-6 text-gray-400">
                   Belum ada data
                 </td>
               </tr>
             ) : (
-              filteredStudents.map((student) => {
-                const nilaiAkhir =
-                  (Number(student.nilaiMateri1) +
-                    Number(student.nilaiMateri2) +
-                    Number(student.nilaiMateri3)) /
-                    3 || 0;
+              processedStudents.map((student) => {
                 return (
                   <tr
                     key={student.id}
-                    className="hover:bg-gray-100 even:bg-gray-50"
+                    className={
+                      student.nilaiAkhir === highestScore
+                        ? "bg-yellow-200"
+                        : "hover:bg-gray-100 even:bg-gray-50"
+                    }
                   >
                     <td className="px-4 py-2">{student.name}</td>
                     <td className="px-4 py-2">{student.level}</td>
@@ -330,7 +428,7 @@ const Student = () => {
                     <td>{student.nilaiMateri1}</td>
                     <td>{student.nilaiMateri2}</td>
                     <td>{student.nilaiMateri3}</td>
-                    <td>{nilaiAkhir.toFixed(2)}</td>
+                    <td>{student.nilaiAkhir.toFixed(2)}</td>
                     <td className="px-4 py-2">
                       <button
                         onClick={() => handleDelete(student.id)}
