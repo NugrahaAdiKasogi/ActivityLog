@@ -29,23 +29,23 @@ const reducer = (state, action) => {
   }
 };
 
+const emptyLogs = {
+  tanggal: "",
+  kelas: "",
+  materi: "",
+  tidakHadir: "",
+  catatan: "",
+};
 const Logs = () => {
   const [logs, dispatch] = useReducer(reducer, [], initialState);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  
+  const [logForm, setLogForm] = useState(emptyLogs);
+
   useEffect(() => {
     localStorage.setItem("logs", JSON.stringify(logs));
   }, [logs]);
-  
-  const emptyLogs = {
-    tanggal: "",
-    kelas: "",
-    materi: "",
-    catatan: "",
-  };
-  
-  const [logForm, setLogForm] = useState(emptyLogs);
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!logForm.tanggal || !logForm.kelas || !logForm.materi) {
@@ -150,6 +150,18 @@ const Logs = () => {
                   required
                 />
                 <label className="block text-sm font-medium text-gray-700">
+                  Yang Tidak Hadir
+                </label>
+                <textarea
+                  value={logForm.tidakHadir}
+                  onChange={(e) =>
+                    setLogForm({ ...logForm, tidakHadir: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                />
+
+
+                <label className="block text-sm font-medium text-gray-700">
                   Catatan
                 </label>
                 <textarea
@@ -183,9 +195,12 @@ const Logs = () => {
             {logs.length === 0 ? (
               <p className="text-gray-500">No logs available.</p>
             ) : (
-              <div className="space-y-2" >
+              <div className="space-y-2">
                 {processLogs.map((log) => (
-                  <div className="relative border-l-2 border-gray-200 ml-4" key={log.id}>
+                  <div
+                    className="relative border-l-2 border-gray-200 ml-4"
+                    key={log.id}
+                  >
                     <div className="mb-10 ml-6 flex items-start">
                       <div className="absolute -left-1.5 w-3 h-3 bg-blue-500 rounded-full mt-1.5"></div>
 
@@ -205,6 +220,11 @@ const Logs = () => {
                         <p className="text-sm text-gray-500 mt-2 italic">
                           Catatan: {log.catatan}
                         </p>
+                        {log.tidakHadir && (
+                          <p className="text-sm text-red-500 mt-2 italic">
+                            Tidak Hadir: {log.tidakHadir}
+                          </p>
+                        )}
                       </div>
                       {/* Edit button would go here */}
                       <div className="ml-4 flex space-x-2">
@@ -214,8 +234,6 @@ const Logs = () => {
                         >
                           Edit
                         </button>
-                      </div>
-                      <div className="ml-4 flex space-x-2">
                         <button
                           className="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-2 rounded"
                           onClick={() => handleDelete(log.id)}
