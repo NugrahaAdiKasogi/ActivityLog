@@ -97,7 +97,7 @@ const Logs = () => {
       <div className="w-full max-w-4xl bg-white rounded-lg shadow-md p-6">
         <div className="flex flex-col">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold mb-4">Logs</h1>
+            <h1 className="text-2xl font-bold mb-4">Activity Logs</h1>
             <button
               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
               onClick={() => addLogs()}
@@ -200,7 +200,7 @@ const Logs = () => {
                     className="mb-10 ml-2 flex flex-col md:flex-row items-start w-full p-6"
                     key={log.id}
                   >
-                    <div className="hidden md:block absolute -left-18 text-right text-sm font-medium text-gray-400 w-[32px]">
+                    <div className="hidden md:block absolute -left-18 text-right text-sm font-medium text-gray-400 w-8">
                       {new Date(log.tanggal).toLocaleDateString("id-ID", {
                         day: "2-digit",
                         month: "short",
