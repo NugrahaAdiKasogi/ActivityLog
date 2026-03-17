@@ -1,15 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
 import Modals from "../components/layout/Modals";
-
-const initialState = () => {
-  try {
-    const logs = localStorage.getItem("logs");
-    return logs ? JSON.parse(logs) : [];
-  } catch (error) {
-    console.error("Error parsing logs from localStorage:", error);
-    return [];
-  }
-};
+import { supabase } from "../lib/supabase";
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -24,6 +15,8 @@ const reducer = (state, action) => {
         log.id === action.payload.id ? { ...log, ...action.payload } : log,
       );
       return updatedLogs;
+    case "SET_LOGS":
+      return action.payload;
     default:
       return state;
   }
@@ -36,32 +29,66 @@ const emptyLogs = {
   tidakHadir: "",
   catatan: "",
 };
+
 const Logs = () => {
-  const [logs, dispatch] = useReducer(reducer, [], initialState);
+  const [logs, dispatch] = useReducer(reducer, []);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [logForm, setLogForm] = useState(emptyLogs);
 
   useEffect(() => {
-    localStorage.setItem("logs", JSON.stringify(logs));
-  }, [logs]);
+    const fetchLogs = async () => {
+      const { data, error } = await supabase.from("logs").select("*");
+      if (!error) {
+        dispatch({ type: "SET_LOGS", payload: data });
+      }
+    };
+    fetchLogs();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!logForm.tanggal || !logForm.kelas || !logForm.materi) {
-      alert("Please fill in all required fields.");
-      return;
-    }
+  }, []);
 
-    if (editingId) {
-      dispatch({ type: "EDIT_LOG", payload: { ...logForm, id: editingId } });
-      setEditingId(null);
-    } else {
-      dispatch({ type: "ADD_LOG", payload: { ...logForm, id: Date.now() } });
-      setLogForm(emptyLogs);
-    }
-    handleCloseModal();
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!logForm.tanggal || !logForm.kelas || !logForm.materi) {
+    alert("Harap isi semua bidang wajib.");
+    return;
+  }
+
+  // BUAT OBJEK BERSIH (Hanya kolom database)
+  const logData = {
+    tanggal: logForm.tanggal,
+    kelas: logForm.kelas,
+    materi: logForm.materi,
+    tidakHadir: logForm.tidakHadir,
+    catatan: logForm.catatan,
   };
+
+  if (editingId) {
+    // UPDATE
+    const { error } = await supabase
+      .from("logs")
+      .update(logData) // Mengirim logData yang sudah bersih
+      .eq("id", editingId);
+
+    if (!error) {
+      dispatch({ type: "EDIT_LOG", payload: { ...logData, id: editingId } });
+      handleCloseModal();
+    } else {
+      console.error("Error update:", error);
+      alert("Gagal update log: " + error.message);
+    }
+  } else {
+    // INSERT (Logika tambah tetap sama)
+    const { data, error } = await supabase.from("logs").insert([logData]).select();
+    if (!error && data) {
+      dispatch({ type: "ADD_LOG", payload: data[0] });
+      setLogForm(emptyLogs);
+      handleCloseModal();
+    } else {
+      alert("Gagal menambah log ke server.");
+    }
+  }
+};
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
@@ -69,8 +96,13 @@ const Logs = () => {
     setLogForm(emptyLogs);
   };
 
-  const handleDelete = (id) => {
-    dispatch({ type: "DELETE_LOG", payload: id });
+  const handleDelete = async (id) => {
+    const { error } = await supabase.from("logs").delete().eq("id", id);
+    if (!error) {
+      dispatch({ type: "DELETE_LOG", payload: id });
+    } else {
+      alert("Failed to delete log from server.");
+    }
   };
 
   const handleEdit = (log) => {

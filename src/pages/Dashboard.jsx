@@ -1,8 +1,21 @@
 import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
-const getStats = (levelTop, levelBottom) => {
-  const logs = JSON.parse(localStorage.getItem("logs") || "[]");
-  const students = JSON.parse(localStorage.getItem("students") || "[]");
+const getStats = async (levelTop, levelBottom) => {
+  // 1. Ambil data dari Supabase
+  const { data: logs, error: logError } = await supabase
+    .from("logs")
+    .select("*");
+  const { data: students, error: studentError } = await supabase
+    .from("students")
+    .select("*");
+
+  if (logError || studentError) {
+    console.error("Error fetching dashboard data:", logError || studentError);
+    return null;
+  }
+
+  // --- LOGIKA PERHITUNGAN (Sama seperti sebelumnya, tapi pakai data dari DB) ---
 
   const totalNilaiSemuaSiswa = students.reduce((sum, s) => {
     const rataSiswa =
@@ -18,18 +31,20 @@ const getStats = (levelTop, levelBottom) => {
       ? (totalNilaiSemuaSiswa / students.length).toFixed(2)
       : "0.00";
 
-  const ThreelastLogs = logs.slice(0, 3).sort((a, b) => b.tanggal - a.tanggal); // Ambil 3 log terakhir dan balik urutannya
+  // Ambil 3 log terbaru (Sort berdasarkan tanggal di database biasanya lebih aman)
+  const lastThreeLogs = [...logs]
+    .sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
+    .slice(0, 3);
 
-  //Top 3 siswa berdasarkan jenjang
-  const filteredStudentsTop = levelTop
+  // Filter Top & Bottom
+  const filteredTop = levelTop
     ? students.filter((s) => s.level === levelTop)
     : students;
-
-  const filteredStudentsBottom = levelBottom
+  const filteredBottom = levelBottom
     ? students.filter((s) => s.level === levelBottom)
     : students;
 
-  const topThreeRankStudents = filteredStudentsTop
+  const topThree = filteredTop
     .map((s) => ({
       ...s,
       rata:
@@ -38,10 +53,10 @@ const getStats = (levelTop, levelBottom) => {
           Number(s.nilaiMateri3 || 0)) /
         3,
     }))
-    .sort((a, b) => b.rata - a.rata) // Urutkan berdasarkan rata-rata nilai
-    .slice(0, 3); // Ambil hanya 3 siswa teratas
+    .sort((a, b) => b.rata - a.rata)
+    .slice(0, 3);
 
-  const bottomThreeRankStudents = filteredStudentsBottom
+  const bottomThree = filteredBottom
     .map((s) => ({
       ...s,
       rata:
@@ -50,37 +65,28 @@ const getStats = (levelTop, levelBottom) => {
           Number(s.nilaiMateri3 || 0)) /
         3,
     }))
-    .sort((a, b) => a.rata - b.rata) // Urutkan berdasarkan rata-rata nilai
-    .slice(0, 3); // Ambil hanya 3 siswa terbawah
+    .sort((a, b) => a.rata - b.rata)
+    .slice(0, 3);
 
-  const graphicNilai = students.map((s) => ({
+  // Grafik Nilai (Ambil 15 siswa saja agar tidak terlalu penuh)
+  const graphicData = students.slice(0, 15).map((s) => ({
     name: s.name,
-    nilaiMateri1: Number(s.nilaiMateri1 || 0),
-    nilaiMateri2: Number(s.nilaiMateri2 || 0),
-    nilaiMateri3: Number(s.nilaiMateri3 || 0),
+    nilaiMateri1: s.nilaiMateri1,
+    nilaiMateri2: s.nilaiMateri2,
+    nilaiMateri3: s.nilaiMateri3,
   }));
 
-  // Logika Filter Tanggal:
-  // Dapatkan bulan dan tahun saat ini menggunakan new Date().getMonth() dan getFullYear().
-  // Filter logs yang memiliki tanggal di bulan dan tahun yang sama.
-  // Lakukan penghitungan absen hanya pada hasil filter tersebut.
-
+  // Hitung Absen Bulan Ini
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-
   const logsThisMonth = logs.filter((log) => {
-    const logDate = new Date(log.tanggal);
-    return (
-      logDate.getMonth() === currentMonth &&
-      logDate.getFullYear() === currentYear
-    );
+    const d = new Date(log.tanggal);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
   });
 
   const totalAbsen = logsThisMonth.reduce((total, log) => {
-    if (log.tidakHadir && log.tidakHadir.trim() !== "") {
-      // Membagi string berdasarkan koma dan menghitung jumlahnya
-      const jumlahOrang = log.tidakHadir.split(",").length;
-      return total + jumlahOrang;
+    if (log.tidakHadir?.trim()) {
+      return total + log.tidakHadir.split(",").length;
     }
     return total;
   }, 0);
@@ -88,12 +94,12 @@ const getStats = (levelTop, levelBottom) => {
   return {
     logCount: logs.length,
     studentCount: students.length,
-    averageNilai: averageNilai,
-    totalAbsen: totalAbsen,
-    lastLog: ThreelastLogs,
-    rankStudents: topThreeRankStudents,
-    bottomThreeRankStudents: bottomThreeRankStudents,
-    graphicNilai: graphicNilai,
+    averageNilai,
+    totalAbsen,
+    lastLog: lastThreeLogs,
+    rankStudents: topThree,
+    bottomThreeRankStudents: bottomThree,
+    graphicNilai: graphicData,
   };
 };
 
@@ -102,18 +108,23 @@ const Dashboard = () => {
     logCount: 0,
     studentCount: 0,
     averageNilai: 0,
-    lastLog: null,
-    rankStudents: null,
-    bottomThreeRankStudents: null,
-    graphicNilai: null,
+    totalAbsen: 0,
+    lastLog: [],
+    rankStudents: [],
+    bottomThreeRankStudents: [],
+    graphicNilai: [],
   });
 
   const [selectedLevelTop, setSelectedLevelTop] = useState("");
   const [selectedLevelBottom, setSelectedLevelBottom] = useState("");
 
   useEffect(() => {
-    const data = getStats(selectedLevelTop, selectedLevelBottom);
-    setStats(data);
+    const loadDashboardData = async () => {
+      const data = await getStats(selectedLevelTop, selectedLevelBottom);
+      if (data) setStats(data);
+    };
+
+    loadDashboardData();
   }, [selectedLevelTop, selectedLevelBottom]);
 
   return (
@@ -263,14 +274,14 @@ const Dashboard = () => {
         </div>
 
         <div className="flex items-end h-64 border-l border-b border-gray-300 px-2 pb-1 gap-4 overflow-x-auto">
-          {stats?.graphicNilai?.map((item, index) => (
+          {//grafik dibatasi 15 siswa agar tidak terlalu penuh, dan pakai data dari DB
+          stats?.graphicNilai?.slice(0, 15).map((item, index) => (
             <div key={index} className="flex flex-col items-center h-full">
               {/* Container Batang */}
               <div className="flex items-end gap-1 flex-1">
                 <div
                   className="w-5 bg-blue-500 rounded-t-sm"
                   style={{ height: `${Number(item.nilaiMateri1) || 0}%` }}
-                  // hover munculkan angka nilai
                   title={`Nilai Materi 1: ${item.nilaiMateri1 || 0}`}
                 ></div>
                 <div

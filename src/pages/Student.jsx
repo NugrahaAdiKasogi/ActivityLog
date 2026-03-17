@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
 import Modals from "../components/layout/Modals";
+import { supabase } from "../lib/supabase";
 
 const init = () => {
   try {
@@ -29,6 +30,8 @@ const reducer = (state, action) => {
           ? { ...item, ...action.payload.data }
           : item,
       );
+    case "SET_INITIAL_DATA":
+      return action.payload;
     default:
       return state;
   }
@@ -42,6 +45,8 @@ const Student = () => {
   const [selectedLevel, setSelectedLevel] = useState("");
   const [selectedKelas, setSelectedKelas] = useState("");
   const [sortBy, setSortBy] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const emptyForm = {
     name: "",
@@ -55,11 +60,17 @@ const Student = () => {
   const [formInput, setFormInput] = useState(emptyForm);
 
   useEffect(() => {
-    localStorage.setItem("students", JSON.stringify(dataStudents));
-  }, [dataStudents]);
+    const fetchData = async () => {
+      const { data, error } = await supabase.from("students").select("*");
+      if (!error) dispatch({ type: "SET_INITIAL_DATA", payload: data });
+    };
+    fetchData();
+  }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validasi (Pastikan semua field terisi)
     if (
       !formInput.name ||
       !formInput.level ||
@@ -67,46 +78,63 @@ const Student = () => {
       !formInput.nilaiMateri1 ||
       !formInput.nilaiMateri2 ||
       !formInput.nilaiMateri3
-    )
+    ) {
+      alert("Harap isi semua bidang.");
       return;
-
-    if (editingId) {
-      // UPDATE pakai map()
-      dispatch({
-        type: "EDIT",
-        payload: {
-          id: editingId,
-          data: {
-            ...formInput,
-            nilaiMateri1: Number(formInput.nilaiMateri1),
-            nilaiMateri2: Number(formInput.nilaiMateri2),
-            nilaiMateri3: Number(formInput.nilaiMateri3),
-          },
-        },
-      });
-      setEditingId(null);
-    } else {
-      // CREATE seperti biasa
-      dispatch({
-        type: "ADD",
-        payload: {
-          ...formInput,
-          nilaiMateri1: Number(formInput.nilaiMateri1),
-          nilaiMateri2: Number(formInput.nilaiMateri2),
-          nilaiMateri3: Number(formInput.nilaiMateri3),
-        },
-      });
-
-      setFormInput(emptyForm);
     }
 
-    handleCloseModal();
-    console.log(formInput);
-    console.log(filteredStudents);
+    const studentData = {
+      name: formInput.name,
+      level: formInput.level,
+      kelas: formInput.kelas,
+      nilaiMateri1: Number(formInput.nilaiMateri1),
+      nilaiMateri2: Number(formInput.nilaiMateri2),
+      nilaiMateri3: Number(formInput.nilaiMateri3),
+    };
+
+    if (editingId) {
+      // --- PROSES EDIT ---
+      const { error } = await supabase
+        .from("students")
+        .update(studentData)
+        .eq("id", editingId);
+
+      if (!error) {
+        dispatch({
+          type: "EDIT",
+          payload: { id: editingId, data: studentData },
+        });
+      } else {
+        console.error("Gagal Update:", error.message);
+      }
+    } else {
+      // --- PROSES TAMBAH ---
+      const { data, error } = await supabase
+        .from("students")
+        .insert([studentData])
+        .select();
+
+      if (!error && data) {
+        dispatch({ type: "ADD", payload: data[0] });
+        setFormInput(emptyForm);
+      } else {
+        console.error("Gagal Simpan:", error.message);
+      }
+    }
+
+    handleCloseModal(); // Menutup modal setelah sukses atau gagal (agar tidak nyangkut)
   };
 
-  const handleDelete = (id) => {
-    dispatch({ type: "DELETE", payload: id });
+  const handleDelete = async (id) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+      const { error } = await supabase.from("students").delete().eq("id", id);
+
+      if (!error) {
+        dispatch({ type: "DELETE", payload: id });
+      } else {
+        alert("Gagal menghapus data dari server.");
+      }
+    }
   };
 
   const handleEdit = (student) => {
@@ -174,7 +202,35 @@ const Student = () => {
   // untuk keperluan highlight (warna kuning)
   const kumpulanNilai = processedStudents.map((s) => s.nilaiAkhir);
   const highestScore =
-    kumpulanNilai.length > 0 ? Math.max(...kumpulanNilai) : 0;
+    kumpulanNilai.length > 0 ? Math.max(...kumpulanNilai, 0) : 0;
+
+  // --- PAGINATION ---
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentData = processedStudents.slice(
+    indexOfFirstItem,
+    indexOfLastItem,
+  );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(processedStudents.length / itemsPerPage),
+  );
+  //kalau data nya 0, totalPages nya 0, nah kalau totalPages nya 0, maka currentPage nya juga harus 0, biar gak error pas klik next/previous
+  useEffect(() => {
+    if (totalPages === 0) {
+      setCurrentPage(0);
+    } else if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  if (currentPage > totalPages) {
+    setCurrentPage(totalPages);
+  }
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedLevel, selectedKelas]);
 
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center p-6">
@@ -405,19 +461,19 @@ const Student = () => {
           </thead>
 
           <tbody className="divide-y divide-gray-200">
-            {processedStudents.length === 0 ? (
+            {currentData.length === 0 ? (
               <tr>
                 <td colSpan="9" className="text-center py-6 text-gray-400">
                   Belum ada data
                 </td>
               </tr>
             ) : (
-              processedStudents.map((student) => {
+              currentData.map((student) => {
                 return (
                   <tr
                     key={student.id}
                     className={
-                      student.nilaiAkhir === highestScore
+                      student.nilaiAkhir === highestScore && highestScore > 0
                         ? "bg-yellow-200"
                         : "hover:bg-gray-100 even:bg-gray-50"
                     }
@@ -451,6 +507,27 @@ const Student = () => {
             )}
           </tbody>
         </table>
+        <div className="flex justify-center items-center gap-4 mt-6">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((prev) => prev - 1)}
+            className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50"
+          >
+            Previous
+          </button>
+
+          <span className="font-medium text-gray-700">
+            Halaman {currentPage} dari {totalPages}
+          </span>
+
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((prev) => prev + 1)}
+            className="px-4 py-2 bg-gray-200 rounded-lg disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );
