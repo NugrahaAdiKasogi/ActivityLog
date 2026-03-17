@@ -254,23 +254,43 @@ const Dashboard = () => {
         {/* Jumlah Absen Bulan Ini */}
         <div className="bg-white p-4 rounded shadow">
           <h2 className="text-lg font-semibold">Jumlah Absen Bulan Ini</h2>
-          <p className="text-5xl font-bold text-center mt-4">{stats.totalAbsen}</p>
+          <p className="text-5xl font-bold text-center mt-4">
+            {stats.totalAbsen}
+          </p>
+          <p className="text-sm text-gray-500 text-center mt-2">
+            {`Total absen dari ${stats.logCount || 0} log yang tercatat di bulan ini`}
+          </p>
         </div>
 
-        {/* Graph */}
-        <div className="bg-white p-4 rounded shadow">
-          <h2 className="text-lg font-semibold">Grafik Nilai</h2>
-          <div className="mt-4">
-            {/* Implementasi grafik bisa menggunakan library seperti Chart.js atau Recharts */}
-            {/* Contoh placeholder untuk grafik */}
-            {stats.graphicNilai && stats.graphicNilai.length > 0 ? (
-              <div className="h-20 bg-gray-100 flex items-center justify-center">
-                <p className="text-gray-500">Grafik akan ditampilkan di sini</p>
+        <div className="flex items-end h-64 border-l border-b border-gray-300 px-2 pb-1 gap-4 overflow-x-auto">
+          {stats?.graphicNilai?.map((item, index) => (
+            <div key={index} className="flex flex-col items-center h-full">
+              {/* Container Batang */}
+              <div className="flex items-end gap-1 flex-1">
+                <div
+                  className="w-5 bg-blue-500 rounded-t-sm"
+                  style={{ height: `${Number(item.nilaiMateri1) || 0}%` }}
+                  // hover munculkan angka nilai
+                  title={`Nilai Materi 1: ${item.nilaiMateri1 || 0}`}
+                ></div>
+                <div
+                  className="w-5 bg-green-500 rounded-t-sm"
+                  style={{ height: `${Number(item.nilaiMateri2) || 0}%` }}
+                  title={`Nilai Materi 2: ${item.nilaiMateri2 || 0}`}
+                ></div>
+                <div
+                  className="w-5 bg-red-500 rounded-t-sm"
+                  style={{ height: `${Number(item.nilaiMateri3) || 0}%` }}
+                  title={`Nilai Materi 3: ${item.nilaiMateri3 || 0}`}
+                ></div>
               </div>
-            ) : (
-              <p className="text-gray-500">No data available for graph.</p>
-            )}
-          </div>
+
+              {/* Label Nama */}
+              <p className="text-[10px] mt-2 truncate w-16 text-center">
+                {item.name}
+              </p>
+            </div>
+          ))}
         </div>
 
         {/* Quick Actions */}
@@ -279,13 +299,13 @@ const Dashboard = () => {
           <div className="mt-4 flex flex-col gap-2">
             <button
               className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-              onClick={() => (window.location.href = "/add-log")}
+              onClick={() => (window.location.href = "/logs")}
             >
               Tambah Log
             </button>
             <button
               className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
-              onClick={() => (window.location.href = "/add-student")}
+              onClick={() => (window.location.href = "/student")}
             >
               Tambah Siswa
             </button>
