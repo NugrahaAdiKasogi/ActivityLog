@@ -1,0 +1,15 @@
+{
+  "short_name": "ActLog",
+  "name": "Acitity Ngajar",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#10b981",
+  "background_color": "#f9fafb"
+}
